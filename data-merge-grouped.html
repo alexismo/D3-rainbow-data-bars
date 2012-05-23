@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+	<title>Data-Group</title>
+	<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+	<meta name="generator" content="Geany 0.21" />
+    <script src="d3.v2.min.js" type="text/javascript"></script>
+    <link href="reset.css" type="stylesheet" />
+    <style>
+		svg{
+			shape-rendering:sharpEdges;
+		}
+		
+        circle.little {
+            fill: #aaa;
+            stroke: #666;
+            stroke-width: 1.5px;
+        }
+        
+        g.follow{
+			fill: white;
+			stroke: black;
+			stroke-width: 1px;
+		}
+		
+		g.follow text{
+			font-size:12px;
+			fill:black;
+			font:14px sans-serif
+		}
+		
+    </style>
+</head>
+
+<body>
+    <script type="text/javascript">
+        var margin = {top: 19, right: 20, bottom: 20, left: 19},
+        width = screen.width - margin.left - margin.right,
+        height = 750 - margin.top - margin.bottom;
+		
+		var boxSize = {w:50, h:20};
+		
+		var device = function(d){
+			return d;
+		};
+		
+		//initialize a bunch of crap
+		var nestedData = null;
+        var maxParts = null;
+        var c = null;
+        var mouseRect = null;
+        var barWidth = null;
+        
+        var csv = d3.csv("connections_short.csv", //parse all the data :D
+		function(data){
+			nestedData = d3.nest()//SQL GROUP_BY groups all the data by device
+			.key(function(d){return d.device})
+			.entries(data);
+			
+			maxParts = d3.max(nestedData, function(d){return d.values.length});
+            console.log(maxParts);
+			
+			//initialize functions that work with data
+			c = d3.scale.linear().domain([0,maxParts]).range(["hsl(0, 50%, 50%)", "hsl(350, 60%, 50%)"]).interpolate(d3.interpolateHsl);
+			
+			drawBars();//draw it :D
+			initBox();//make the little toolbox that could.
+		});
+		
+		var chart = d3.select("body").append("svg")
+				.attr("width", width)
+				.attr("height", height)
+                .attr("class", "chart")
+			.append("g")
+				.attr("transform", "translate(" + (margin.left) + "," + (margin.top) + ")");
+        
+		var drawBars = function(){
+			
+			barWidth = Math.floor(width/maxParts);
+			console.log(barWidth, width);
+			
+			var row = chart.selectAll(".row")//groups the data by row, so it can be translated
+			.data(nestedData).enter().append("svg:g")
+				.attr("class","row");
+            
+            var col = row.selectAll(".cell")
+					.data(function(d){return d.values;})
+					.enter().append("svg:rect")
+						.attr("class", "cell")
+						.attr("stroke", "none").attr("fill", function(d){return c(d.part);})
+						.attr("x", function(d, i){return i})
+						.attr("y", function(d){return d.device*20})
+						.attr("width", barWidth)
+						.attr("height", 20)
+						.on("mouseover", function(d, i){
+						var pos = {x: parseInt(d3.select(this).attr("x")),y:parseInt(d3.select(this).attr("y"))};
+						moveBox(d.part, pos);
+						
+						subSelect(d.part)
+						.attr("stroke","#000")
+						.attr("stroke-width","1px");
+					})
+					.on("mouseout", function(d, i){
+						subSelect(d.part)
+						.attr("stroke", "none")
+						.attr("stroke-width","0");
+					});
+		};
+		
+		var subSelect = function(part){
+			return chart.selectAll("rect").
+				filter(function(d, i){
+					return d.part == part;
+				});
+		};
+		
+		var initBox = function(){
+			var pos = {x:-100, y:-100};
+			mouseRect = chart.selectAll(".follow")
+				.data(["boop"]).enter()
+				.append("g")
+					.attr("class", "follow")
+					.attr("transform", "translate(" + (pos.x) + "," + (pos.y) + ")");
+					
+			mouseRect.selectAll(".follow")
+					.data(["boop"]).enter()
+					.append("rect")
+						.attr("stroke","#000")
+						.attr("fill","#fff")
+						.attr("width",boxSize.w).attr("height",boxSize.h);
+					
+			mouseRect.selectAll(".follow")
+				.data(["boop"]).enter()
+				.append("text")
+					.attr("dy","1em")
+					.attr("dx","1em")
+					.attr("text-anchor","left")
+					.text("boop");
+		}
+		
+		var moveBox = function(text, pos){
+			pos.x += 2*barWidth;//move the box a bit to the right, so you can still mouseover the new ones
+			//newPosition = mouseRect.attr("transform").split('(')[1].split(')')[0].split(',');
+			
+			if(pos.x + boxSize.w > width - margin.left)//if the box is too much to the right, make it jump back
+				pos.x -= 1.45*boxSize.w;
+			
+			mouseRect.attr("transform", "translate("+(pos.x)+","+(pos.y)+")")
+				.selectAll("text")
+				.text(text);
+		}
+    </script>
+</body>
+</html>
